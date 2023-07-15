@@ -1,0 +1,9 @@
+version: '2'
+services:
+    php:
+        image: php:8.0-apache
+        ports:
+            - 80:80
+        volumes:
+            - ./www:/var/www/html
+            - ./www/php.ini:/usr/local/etc/php/conf.d/php.ini
