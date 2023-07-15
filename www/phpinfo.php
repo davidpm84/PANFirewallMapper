@@ -1,5 +1,3 @@
 <?php
-//echo phpinfo();
-$var = "var";
-echo $var;
+echo phpinfo();
 ?>
