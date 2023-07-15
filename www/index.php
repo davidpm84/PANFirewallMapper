@@ -92,7 +92,7 @@ error_reporting(E_ALL & ~E_NOTICE);
               <form class="row g-3" form action="" method="post" enctype="multipart/form-data">
     
                 <div class="col-md-12">
-                  <label for="file" class="form-label">Please upload TSF file (.tgz) to start </label><br>
+                  <label for="file" class="form-label">Please upload TSF file (.tgz) to start (500MB max) </label><br>
                   <input type="file" name="file" id="file">
                   </select>  
                   <br><br>
