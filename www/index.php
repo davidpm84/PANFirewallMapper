@@ -67,7 +67,7 @@
   <?php
   $DBFiles = glob($target_dir . "*.csv");
   ini_set('display_errors', 0);
-error_reporting(E_ALL & ~E_NOTICE);
+  error_reporting(E_ALL & ~E_NOTICE);
   ?>
 
   
@@ -92,7 +92,7 @@ error_reporting(E_ALL & ~E_NOTICE);
               <form class="row g-3" form action="" method="post" enctype="multipart/form-data">
     
                 <div class="col-md-12">
-                  <label for="file" class="form-label">Please upload TSF file (.tgz) to start (500MB max) </label><br>
+                  <label for="file" class="form-label">Please upload TSF file (.tgz) to start </label><br>
                   <input type="file" name="file" id="file">
                   </select>  
                   <br><br>
@@ -203,6 +203,7 @@ if ($uploadOk == 0) {
   }
 
   $running_config = $target_dir . "opt/pancfg/mgmt/saved-configs/running-config.xml";
+  $sdb_interfaces = $target_dir . "tmp/cli/logs/sdb.txt";
   $clifile = '';
   $edldomain = '';
   $edls=0;
@@ -291,10 +292,13 @@ if ($uploadOk == 0) {
     $modelo="";
     $panorama=0;
     $patron_panorama= '/>([^<]+)</';
-    $encontradoAddress = null;
+    $patron_interfaces = '/^.*\.status:.*\'link\': Up.*$/';
+
     $lines = file($running_config); // Leer el archivo en un array de líneas
     $lineas_clifile = file($clifile); // Leer el archivo en un array de líneas
-    
+    $linesSdb = file($sdb_interfaces); // Leer el archivo en un array de líneas
+
+   
     
     $numEDLDomain=0;
     foreach ($edldomain as $archivo) {
@@ -315,6 +319,51 @@ if ($uploadOk == 0) {
       $lineas_edlip = file($archivo);
       $numEDLIP = $numEDLIP + count($lineas_edlip);
     }
+
+
+// recorrer el fichero sdb.txt en busca de las interfaces
+
+$puertosProcesados = array(); // Arreglo para almacenar los números de puerto procesados
+$conteoSettingType = array(); // Arreglo multidimensional para almacenar los conteos de cada combinación de setting y type
+
+foreach ($linesSdb as $lineaSdb) {
+  if (preg_match($patron_interfaces, $lineaSdb, $coincidencias)) {
+      preg_match("/'setting': (\d+Gb)/", $lineaSdb, $matchesSetting);
+      $settingValue = $matchesSetting[1];
+
+      preg_match("/'type': (\w+(-\w+)*)/", $lineaSdb, $matchesType);
+      $typeValue = $matchesType[1];
+      
+      if ($typeValue === "Internal") {
+        continue; // Saltar a la siguiente iteración si el tipo es "Internal"
+      }
+      preg_match("/sys\.s(\d+)\.p(\d+)/", $lineaSdb, $matches);
+      $numeroS = $matches[1];
+      $numeroP = $matches[2];
+      $numeroPuerto = "s$numeroS.p$numeroP";
+
+      // Verificar si el número de puerto ya se ha procesado antes
+      if (in_array($numeroPuerto, $puertosProcesados)) {
+          continue; // Saltar a la siguiente iteración si el número de puerto ya se ha procesado
+      }
+
+      // Almacenar el número de puerto en el arreglo de puertos procesados
+      $puertosProcesados[] = $numeroPuerto;
+
+      // Incrementar el conteo correspondiente en el arreglo multidimensional
+      if (isset($conteoSettingType[$settingValue][$typeValue])) {
+          $conteoSettingType[$settingValue][$typeValue]++;
+      } else {
+          $conteoSettingType[$settingValue][$typeValue] = 1;
+      }
+
+  }
+}
+
+
+
+
+
 
 
 // recorrer el fichero de CLI
@@ -694,6 +743,7 @@ if (!is_dir($directorio)) {
     echo '<th>DHCP Servers</th>';
     echo '<th>DHCP Relays</th>';
     echo '<th>GP Users</th>';
+    echo '<th>Interfaces in use</th>';
 
 
     echo '</tr>';
@@ -719,6 +769,14 @@ if (!is_dir($directorio)) {
     echo '<th>' . $dhcp-$dhcprelay . '</th>';
     echo '<th>' . $dhcprelay . '</th>';
     echo '<th>' .$UsuariosGP . '</th>';
+    echo '<th>';
+    // Mostrar los conteos de cada combinación de setting y type
+foreach ($conteoSettingType as $setting => $conteoType) {
+  foreach ($conteoType as $type => $conteo) {
+      echo "$conteo-$type-$setting<br>";
+  }
+}
+echo '</th>';
     echo '</tr>';
 $dhcpservers=$dhcp-$dhcprelay;
 $modelorecomendado = array();   
@@ -855,7 +913,7 @@ $primerValorRecomendado = null;
    
     }
   
-
+    echo '<td >Check Manually</td>';
  
     echo '</tr>';
     $numerolinea++;
@@ -993,6 +1051,15 @@ if (!empty($running_config)) {
   echo '<span style="color: green;"> Config file found </span>';
 } else {
   echo '<span style="color: red;"> Config file not found </span>';
+}
+echo '</li>';
+
+// Fichero Sdb encontrado
+echo '<li class="nav-item">';
+if (!empty($sdb_interfaces)) {
+  echo '<span style="color: green;"> SDB file found </span>';
+} else {
+  echo '<span style="color: red;"> SDB file not found </span>';
 }
 echo '</li>';
 
