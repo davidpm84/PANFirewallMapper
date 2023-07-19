@@ -204,6 +204,7 @@ if ($uploadOk == 0) {
 
   $running_config = $target_dir . "opt/pancfg/mgmt/saved-configs/.merged-running-config.xml";
   $sdb_interfaces = $target_dir . "tmp/cli/logs/sdb.txt";
+  $hw_price = "hardwareprice.txt";
   $clifile = '';
   $edldomain = '';
   $edls=0;
@@ -301,6 +302,12 @@ if ($uploadOk == 0) {
     $lines = file($running_config); // Leer el archivo en un array de líneas
     $lineas_clifile = file($clifile); // Leer el archivo en un array de líneas
     $linesSdb = file($sdb_interfaces); // Leer el archivo en un array de líneas
+    if (file_exists($hw_price)) {
+      $lineshwprice = file($hw_price); // Leer el archivo en un array de líneas
+  } else {
+    $lineshwprice = ""; 
+
+  }
 
    
     
@@ -690,6 +697,19 @@ if (!is_dir($directorio)) {
     mkdir($directorio, 0777, true);
 
 }
+
+
+foreach ($lineshwprice as $lineahwprice) {
+  if ($modelo == $lineahwprice) {
+
+  }
+}
+
+
+
+
+
+
 ?>
  
  <div class="pagetitle">
@@ -703,6 +723,40 @@ if (!is_dir($directorio)) {
             <div class="card-body">
 
 <?php
+$arrayModelo = array();
+$encontradoModelo = false;
+// Ruta del archivo CSV
+$csvFile = $panosversion;
+// Abrir el archivo CSV en modo lectura
+$file = fopen($csvFile, 'r');
+
+// Comprobar si se pudo abrir el archivo
+if ($file) {
+//primer paso para obtener array de la información del modelo actual
+while (($line = fgetcsv($file, 0, ';')) !== false) {
+  foreach ($line as $index => $column) {
+      if ($index === 0) {
+          if ($modelo == $column) {
+              $encontradoModelo = true;
+          }
+      }
+
+      if ($encontradoModelo) {
+          $arrayModelo[$index] = $column;
+      }
+  }
+
+  if ($encontradoModelo) {
+      break; // Sale del bucle while una vez que se ha encontrado el modelo
+  }
+}
+
+    // Cerrar el archivo
+    fclose($file);
+} else {
+    echo 'No se pudo abrir el archivo CSV.';
+}
+
 
     echo '<style>';
     echo 'table {';
@@ -754,31 +808,34 @@ if (!is_dir($directorio)) {
     echo '<th>DHCP Relays</th>';
     echo '<th>GP Users</th>';
     echo '<th>Interfaces in use</th>';
-
+    if ($lineshwprice!=""){
+      echo '<th>Base HW Price</th>';
+    }
 
     echo '</tr>';
 
     echo '<tr>';
     echo '<th>' . $hostname .'</th>';
-    echo '<th>'. $throughput.'</th>';
+    echo '<th>'. $throughput.'/'.$arrayModelo[1].'</th>';
     //echo '<th>cps</th>';
-    echo '<th>' .$numeroSesiones . '</th>';
-    echo '<th>' .$secrules . '</th>';
-    echo '<th>' . $natrules . '</th>';
-    echo '<th>' .$zonas . '</th>';
-    echo '<th>'. $Addresses .'</th>';
-    echo '<th>'. $fqdn .'</th>';
-    echo '<th>'. $edls .'</th>';
-    echo '<th>' .$numEDLIP . '</th>';
-    echo '<th>' .$numEDLDomain . '</th>';
-    echo '<th>' .$numEDLURL . '</th>';
-    echo '<th>' .$vrouters . '</th>';
-    echo '<th>' . $vsys .'</th>';
-    echo '<th>' . $vsys .'</th>';
-    echo '<th>' .$mac_table . '</th>';
-    echo '<th>' . $dhcp-$dhcprelay . '</th>';
-    echo '<th>' . $dhcprelay . '</th>';
-    echo '<th>' .$UsuariosGP . '</th>';
+    echo '<th>' .$numeroSesiones .'/'.$arrayModelo[3]. '</th>';
+    echo '<th>' .$secrules . '/'.$arrayModelo[4].'</th>';
+    echo '<th>' . $natrules . '/'.$arrayModelo[5].'</th>';
+    echo '<th>' .$zonas . '/'.$arrayModelo[6].'</th>';
+    echo '<th>'. $Addresses .'/'.$arrayModelo[7].'</th>';
+    echo '<th>'. $fqdn .'/'.$arrayModelo[8].'</th>';
+    echo '<th>'. $edls .'/'.$arrayModelo[9].'</th>';
+    echo '<th>' .$numEDLIP .'/'.$arrayModelo[10]. '</th>';
+    echo '<th>' .$numEDLDomain . '/'.$arrayModelo[11].'</th>';
+    echo '<th>' .$numEDLURL . '/'.$arrayModelo[12].'</th>';
+    echo '<th>' .$vrouters . '/'.$arrayModelo[13].'</th>';
+    echo '<th>' . $vsys .'/'.$arrayModelo[14].'</th>';
+    echo '<th>' . $vsys .'/'.$arrayModelo[15].'</th>';
+    echo '<th>' .$mac_table .'/'.$arrayModelo[16]. '</th>';
+    echo '<th>' . $dhcp-$dhcprelay .'/'.$arrayModelo[17]. '</th>';
+    echo '<th>' . $dhcprelay . '/'.$arrayModelo[18].'</th>';
+    echo '<th>' .$UsuariosGP . '/'.$arrayModelo[19].'</th>';
+
     echo '<th>';
     // Mostrar los conteos de cada combinación de setting y type
 foreach ($conteoSettingType as $setting => $conteoType) {
@@ -787,12 +844,26 @@ foreach ($conteoSettingType as $setting => $conteoType) {
   }
 }
 echo '</th>';
+
+if ($lineshwprice!=""){
+  foreach ($lineshwprice as $lineahwprice) {
+    $parts = explode(';', $lineahwprice); // Split the line into two parts based on the semicolon (;)
+    $model = trim($parts[0]); // Remove any leading/trailing whitespace from the model part
+  
+    if ($model === $modelo) {
+      $formattedPrice = number_format($parts[1], 0, '.', '.'); // Format the price with dot as thousands separator
+      echo '<th>' . $formattedPrice . '$</th>'; // Append dollar sign at the end
+      break; // If a match is found, exit the loop
+    }
+  }
+}
+
+
     echo '</tr>';
 $dhcpservers=$dhcp-$dhcprelay;
 $modelorecomendado = array();   
 $modelodb = array();
-// Ruta del archivo CSV
-$csvFile = $panosversion;
+
 
 
 // Abrir el archivo CSV en modo lectura
@@ -800,10 +871,37 @@ $file = fopen($csvFile, 'r');
 
 // Comprobar si se pudo abrir el archivo
 if ($file) {
+//primer paso para obtener array de la información del modelo actual
+while (($line = fgetcsv($file, 0, ';')) !== false) {
+  foreach ($line as $index => $column) {
+      if ($index === 0) {
+          if ($modelo == $column) {
+              $encontradoModelo = true;
+          }
+      }
+
+      if ($encontradoModelo) {
+          $arrayModelo[$index] = $column;
+      }
+  }
+
+  if ($encontradoModelo) {
+      break; // Sale del bucle while una vez que se ha encontrado el modelo
+  }
+}
+
+
+
+
+
+
     
 $numerolinea=1;
 $primerValorRecomendado = null;
   while (($line = fgetcsv($file, 0, ';')) !== false) {
+    if (in_array("break", $line)) {
+      break; // Detiene la lectura del archivo cuando se encuentra el texto "break" en alguna línea
+    }
     echo '<tr>';
     $modelorecomendado[$numerolinea]=1;
     $modelorecomendadovsyslicense[$numerolinea]=0;
@@ -924,6 +1022,18 @@ $primerValorRecomendado = null;
     }
   
     echo '<td >Check Manually</td>';
+    if ($lineshwprice!=""){
+      foreach ($lineshwprice as $lineahwprice) {
+        $parts = explode(';', $lineahwprice); // Split the line into two parts based on the semicolon (;)
+        $model = trim($parts[0]); // Remove any leading/trailing whitespace from the model part
+      
+        if ($model === $modelodb[$numerolinea]) {
+          $formattedPrice = number_format($parts[1], 0, '.', '.'); // Format the price with dot as thousands separator
+          echo '<th>' . $formattedPrice . '$</th>'; // Append dollar sign at the end
+          break; // If a match is found, exit the loop
+        }
+      }
+    }
  
     echo '</tr>';
     $numerolinea++;
@@ -1093,7 +1203,13 @@ if (!empty($archivo)) {
 }
 echo '</li>';
 
-
+echo '<li class="nav-item">';
+if ($lineshwprice!="") {
+  echo '<span style="color: green;"> Hardware price file found </span>';
+} else {
+  echo '<span style="color: red;"> Hardware price file not found </span>';
+}
+echo '</li>';
 
 
 //descompresión ok
