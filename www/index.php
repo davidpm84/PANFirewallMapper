@@ -788,7 +788,7 @@ while (($line = fgetcsv($file, 0, ';')) !== false) {
 
     echo '<tr>';
     echo '<th>Firewall</th>';
-    echo '<th>TP Throughput</th>';
+    echo '<th>TP Throughput (Gb/s)</th>';
     //echo '<th>CPS</th>';
     echo '<th>Sessions</th>';
     echo '<th>Sec. Policies</th>';
@@ -797,9 +797,9 @@ while (($line = fgetcsv($file, 0, ';')) !== false) {
     echo '<th>Add. Objects</th>';
     echo '<th>FQDN Objects</th>';
     echo '<th>EDL</th>';
-    echo '<th>Nº registros EDL IPs</th>';
-    echo '<th>Nº registros EDL Dominios</th>';
-    echo '<th>Nº registros EDL URL</th>';
+    echo '<th>EDL IPs</th>';
+    echo '<th>EDL Domains</th>';
+    echo '<th>EDL URL</th>';
     echo '<th>VR</th>';
     echo '<th>Base Vsys</th>';
     echo '<th>Max. Vsys</th>';
