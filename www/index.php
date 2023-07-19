@@ -1120,7 +1120,7 @@ echo "<br><br> * The information provided on this website is intended for inform
 <ul class="sidebar-nav" id="sidebar-nav">
 <li class="nav-item">
       <i class="bi bi-grid"></i>
-      <span>PANFirewallMapper Version: 1.1</span>
+      <span>PANFirewallMapper Version: 1.2</span>
   </li>
   <li class="nav-item">
       <i class="bi bi-grid"></i>
