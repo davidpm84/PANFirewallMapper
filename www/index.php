@@ -202,7 +202,7 @@ if ($uploadOk == 0) {
       $desc_completada=0;
   }
 
-  $running_config = $target_dir . "opt/pancfg/mgmt/saved-configs/running-config.xml";
+  $running_config = $target_dir . "opt/pancfg/mgmt/saved-configs/.merged-running-config.xml";
   $sdb_interfaces = $target_dir . "tmp/cli/logs/sdb.txt";
   $clifile = '';
   $edldomain = '';
@@ -260,7 +260,7 @@ if ($uploadOk == 0) {
     $posicionesEndVR = array();
     $posicionesVR = array();
 
-    $patternvsys = '/<entry name="vsys\d+">/';
+    $patternvsys = '/<entry name="vsys\d+"(.*?)>/';
     $patternvr = '/<entry name="([^"]+)">/';
     $encontradoVsys = false;
     $encontradoZone = false;
@@ -272,8 +272,12 @@ if ($uploadOk == 0) {
     $encontradoNat = false;
     $encontradoVR = false;
     $encontradoVR2 = false;
-    $encontradoQos = false;
-    $VR_Check1 = false; //vr
+    $encontradoVR3 = false;
+    $encontradoVR4 = false;
+    $encontradoVR5 = false;
+    $encontradoVR_linea=0;
+    $encontradoVR2_linea=0;
+    
     $entrar = true; //vr
     $entrar2 = false; //vr
     $entrar3 = 0; //vr
@@ -291,7 +295,7 @@ if ($uploadOk == 0) {
     $patron_modelo = '/model:\s+(.+)/';
     $modelo="";
     $panorama=0;
-    $patron_panorama= '/>([^<]+)</';
+    $patron_panorama= '/<panorama-server>([\w.-]+)<\/panorama-server>/';
     $patron_interfaces = '/^.*\.status:.*\'link\': Up.*$/';
 
     $lines = file($running_config); // Leer el archivo en un array de líneas
@@ -399,6 +403,7 @@ foreach ($linesSdb as $lineaSdb) {
 
     }
 
+
     foreach ($lines as $num_linea => $linea) {
 
      
@@ -488,24 +493,52 @@ foreach ($linesSdb as $lineaSdb) {
           $encontradoAddress = false;
         }
 
-        // Virtual routers - buscar
-        if (trim($linea) == "</qos>") { // los VR vienen antes /qos
-          $encontradoQos = true;
-        }
+    //encontrar los virtual routers
 
-        if (!$encontradoVR && $encontradoQos && strpos($linea, "<virtual-router>") !== false) {
-          $posicionVR = $num_linea;
-        } elseif ($posicionVR==$num_linea-1 && preg_match($patternvr, $linea)) {
-          $posicionesVR[] = $posicionVR;
-          $encontradoVR = true;
-        } 
+            // Buscar la línea con "<devices>"
+            if ((!$encontradoVR) && (trim($linea) == "<virtual-router>")) {
+            $encontradoVR = true;
+            $encontradoVR_linea=$num_linea;
 
-        if ($encontradoVR && strpos($linea, "</virtual-router>") !== false) {
-          $posicionesEndVR[] = $num_linea;
-          $encontradoVR = false;
-          $encontradoQos = false;
-        }
-     
+          }
+    
+  if ( (preg_match('/<entry name="([^"]+)">/', $linea, $matches)  ) && ($encontradoVR_linea==$num_linea-1)) {
+    $posicionesVR[] = $encontradoVR_linea;
+    $encontradoVR2=true;
+ 
+  } else {
+    $encontradoVR = false;
+  }
+
+ 
+
+ 
+
+  // Buscar "</virtual-router>"
+  if (($encontradoVR2) && (trim($linea) == "</entry>")) {
+    $encontradoVR3 = true;
+    $encontradoVR3_linea=$num_linea;
+  }
+
+  if ($encontradoVR2 && $encontradoVR3 && ($encontradoVR3_linea==$num_linea-1) && preg_match('/<\/virtual-router>/', $linea)) {
+      $posicionesEndVR[] = $num_linea;
+      $encontradoVR2 = false;
+      $encontradoVR3 = false;
+      // echo "<script language='JavaScript'>alert($num_linea);</script>";
+    
+      
+   
+  }
+
+
+
+
+
+
+
+
+
+
         // buscar panorama
         if (preg_match($patron_panorama, $linea, $matches)) {
           $panorama = 1;
@@ -534,13 +567,13 @@ foreach ($linesSdb as $lineaSdb) {
     $checkVR2 = false;
     $checkVR1 = false;
 
-
+    $encontradoVR3_linea = 0;
     
-
+   
 
     foreach ($lines as $num_línea => $línea) {
   
-      $patternvsys = '/<entry name="vsys\d+">/';
+      
         if ($num_línea >= ($ini_vsys - 1) && $num_línea <= ($fin_vsys - 1)) {
           if (preg_match($patternvsys, $línea)) {
             $vsys++;
@@ -611,63 +644,40 @@ foreach ($linesSdb as $lineaSdb) {
 
 
 
-// Virtual Routers
-// primera vez
 
-if ($entrar) {
+
+
+// Virtual Routers
+
 for ($i = 0; $i < $sizeVR; $i++) {
   if ($num_línea >= ($posicionesVR[$i] - 1) && $num_línea <= ($posicionesEndVR[$i] - 1) ) {
-    if (preg_match($patternvr, $línea)) {  
+    if (trim($línea) == "<ecmp>" ) {
       $vrouters++;
-      $entrar=false;
+
     }
   }
 }
+
+/*
+for ($i = 0; $i < $sizeVR; $i++) {
+  if (($num_línea >= ($posicionesVR[$i] - 1)) && ($num_línea <= ($posicionesEndVR[$i] - 1)) && $entrar2 && $encontradoVR3_linea==$num_línea-1 ) {
+    if (preg_match($patternvr, $línea)) {  
+      $entrar2 = false;
+      $encontradoProtocol = false;
+      $encontradoRoutingTable = false;
+      $encontradoEcmp = false;
+
+      $vrouters++;
+
+
+      
+    }
+  }
 }
+*/
 
 
 
-  for ($i = 0; $i < $sizeVR; $i++) {
-    if ($num_línea >= ($posicionesVR[$i] - 1) && $num_línea <= ($posicionesEndVR[$i] - 1) ) {
-      if (trim($línea) == "</entry>" ) {
-        $entrar2=true;
-        $encontradoVR3_linea = $num_línea;
-      }
-    }
-  }
-
-  for ($i = 0; $i < $sizeVR; $i++) {
-    if ($num_línea >= ($posicionesVR[$i] - 1) && $num_línea <= ($posicionesEndVR[$i] - 1) ) {
-      if ((trim($línea) == "</protocol>") ||  (trim($línea) == "</ecmp>")) {
-        $entrar3++;
-        
-      }
-    }
-  }
-
-  for ($i = 0; $i < $sizeVR; $i++) {
-    if ($num_línea >= ($posicionesVR[$i] - 1) && $num_línea <= ($posicionesEndVR[$i] - 1) && $entrar2 ) {
-      if (preg_match($patternvr, $línea)) {  
-        $encontradoVR2 = true;
-        $encontradoVR2_linea = $num_línea;
-
-
-        
-      }
-    }
-  }
-  for ($i = 0; $i < $sizeVR; $i++) {
-  if ($num_línea >= ($posicionesVR[$i] - 1) && $num_línea <= ($posicionesEndVR[$i] - 1) && $encontradoVR2 && ($entrar3==2)) {
-    if ((($encontradoVR2_linea == $num_línea - 1)) && ($encontradoVR3_linea == $num_línea - 2))  {
-            $vrouters++;
-            $encontradoVR2 = false;
-            
-            $entrar2 = false;
-            $entrar3 = 0;
-    }
-
-  }
-  }
 }
 
 // Borrar contenido carpeta:
@@ -892,8 +902,8 @@ $primerValorRecomendado = null;
         } else if ($index === 17 && floatval(str_replace(',', '.', $column)) >= $dhcpservers) {
           echo '<td class="green">' . $dhcpservers . '/' . $column . '</td>';
         } else if ($index === 17 && floatval(str_replace(',', '.', $column)) < $dhcpservers) {
-          echo '<td class="orange">' . $dhcpservers . '/' .  $column . '</td>';
-
+          echo '<td class="red">' . $dhcpservers . '/' .  $column . '</td>';
+          $modelorecomendado[$numerolinea]=0;
         } else if ($index === 18 && floatval(str_replace(',', '.', $column)) >= $dhcprelay) {
           echo '<td class="green">' . $dhcprelay . '/' . $column . '</td>';
         } else if ($index === 18 && floatval(str_replace(',', '.', $column)) < $dhcprelay) {
@@ -1000,7 +1010,7 @@ echo "<br><br> * The information provided on this website is intended for inform
 <ul class="sidebar-nav" id="sidebar-nav">
 <li class="nav-item">
       <i class="bi bi-grid"></i>
-      <span>PANFirewallMapper Version: 1.0</span>
+      <span>PANFirewallMapper Version: 1.1</span>
   </li>
   <li class="nav-item">
       <i class="bi bi-grid"></i>
