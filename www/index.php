@@ -39,6 +39,8 @@
   * Author: BootstrapMade.com
   * License: https://bootstrapmade.com/license/
   ======================================================== -->
+
+
 </head>
 
 <body>
@@ -68,6 +70,7 @@
   $DBFiles = glob($target_dir . "*.csv");
   ini_set('display_errors', 0);
   error_reporting(E_ALL & ~E_NOTICE);
+
   ?>
 
   
@@ -298,6 +301,13 @@ if ($uploadOk == 0) {
     $panorama=0;
     $patron_panorama= '/<panorama-server>([\w.-]+)<\/panorama-server>/';
     $patron_interfaces = '/^.*\.status:.*\'link\': Up.*$/';
+    $forwardProxyReady = 'no'; // Asumimos que es "no" hasta que encontremos un "yes"
+    $inboundProxyReady = 'no'; // Asumimos que es "no" hasta que encontremos un "yes"
+    $CDLenabled = 'no';
+    // Inicializar un arreglo para almacenar el contador de cada aplicación
+    $contadoresSecciones = array();
+        $analizando = false; // Variable para indicar si estamos analizando las líneas relevantes
+
 
     $lines = file($running_config); // Leer el archivo en un array de líneas
     $lineas_clifile = file($clifile); // Leer el archivo en un array de líneas
@@ -379,7 +389,71 @@ foreach ($linesSdb as $lineaSdb) {
 
 // recorrer el fichero de CLI
     foreach ($lineas_clifile as $num_linea => $linea_cli) {
-    
+
+      //ver top10 de aplicaciones
+        // Detectar inicio del análisis de una nueva sección
+        if (trim($linea_cli) === "> show session all") {
+          $analizando = true;
+          continue; // Saltar a la siguiente línea
+      }
+
+      // Finalizar el análisis de la sección cuando encontramos una línea que comienza con ">"
+      if ($analizando && strpos($linea_cli, '>') === 0) {
+          $analizando = false;
+
+          // Reiniciar el análisis para la próxima sección
+          continue; // Saltar a la siguiente línea
+      }
+
+      // Ignorar líneas antes de encontrar "> show session all" y las líneas de cabecera/separador
+      if ($analizando && !empty(trim($linea_cli)) && !preg_match('/^(ID|Application|^-+|vsys|Vsys)/', $linea_cli)) {
+        // Obtener la aplicación de la segunda columna
+        $columnas = preg_split('/\s+/', trim($linea_cli));
+        $aplicacion = $columnas[1];
+
+        // Incrementar el contador de la aplicación en la sección actual
+        if (isset($contadoresSecciones[$aplicacion])) {
+            $contadoresSecciones[$aplicacion]++;
+        } else {
+            $contadoresSecciones[$aplicacion] = 1;
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+      if (strpos($linea_cli, 'EAL Ingest FQDN') !== false) {
+        $CDLenabled='yes';
+
+      }
+      
+    // Buscar las líneas con "Forward Proxy Ready" y "Inbound Proxy Ready"
+    if (strpos($linea_cli, 'Forward Proxy Ready') !== false) {
+      // Extraer el valor de Forward Proxy Ready
+      $valor = trim(substr($linea_cli, strpos($linea_cli, ':') + 1));
+
+      if ($valor === 'yes') {
+          $forwardProxyReady = 'yes'; // Establecer "yes" si encontramos al menos un "yes"
+      }
+  } elseif (strpos($linea_cli, 'Inbound Proxy Ready') !== false) {
+      // Extraer el valor de Inbound Proxy Ready
+      $valor = trim(substr($linea_cli, strpos($linea_cli, ':') + 1));
+
+      if ($valor === 'yes') {
+          $inboundProxyReady = 'yes'; // Establecer "yes" si encontramos al menos un "yes"
+      }
+  }
+
+
+
+
+
       if (preg_match($patron_mac, $linea_cli, $matches)) {
         $mac_table = $matches[1];
       }
@@ -564,6 +638,7 @@ foreach ($linesSdb as $lineaSdb) {
     $vrt=0;
     $sys=0;
     $hostname="";
+    $decryptionrules=0;
     $sizeZoneArray = count($posicionesZone);
    
     $sizeReglasSegArray = count($posicionesReglasSeg);
@@ -580,7 +655,12 @@ foreach ($linesSdb as $lineaSdb) {
 
     foreach ($lines as $num_línea => $línea) {
   
-      
+       // Contar ocurrencias de <ssl-forward-proxy/>
+      $decryptionrules += substr_count($línea, '<ssl-forward-proxy/>');
+
+      // Contar ocurrencias de <ssl-inbound-inspection>
+      $decryptionrules += substr_count($línea, '<ssl-inbound-inspection>');
+
         if ($num_línea >= ($ini_vsys - 1) && $num_línea <= ($fin_vsys - 1)) {
           if (preg_match($patternvsys, $línea)) {
             $vsys++;
@@ -807,6 +887,7 @@ while (($line = fgetcsv($file, 0, ';')) !== false) {
     echo '<th>DHCP Servers</th>';
     echo '<th>DHCP Relays</th>';
     echo '<th>GP Users</th>';
+    echo '<th>Decrypt Rules</th>';
     echo '<th>Interfaces in use</th>';
     if ($lineshwprice!=""){
       echo '<th>Base HW Price</th>';
@@ -835,7 +916,7 @@ while (($line = fgetcsv($file, 0, ';')) !== false) {
     echo '<th>' . $dhcp-$dhcprelay .'/'.$arrayModelo[17]. '</th>';
     echo '<th>' . $dhcprelay . '/'.$arrayModelo[18].'</th>';
     echo '<th>' .$UsuariosGP . '/'.$arrayModelo[19].'</th>';
-
+    echo '<th>' .$decryptionrules . '/'.$arrayModelo[20].'</th>';
     echo '<th>';
     // Mostrar los conteos de cada combinación de setting y type
 foreach ($conteoSettingType as $setting => $conteoType) {
@@ -1012,6 +1093,11 @@ $primerValorRecomendado = null;
         } else if ($index === 19 && floatval(str_replace(',', '.', $column)) < $UsuariosGP) {
           echo '<td class="red">' . $UsuariosGP . '/' .  $column . '</td>';
           $modelorecomendado[$numerolinea]=0;
+        } else if ($index === 20 && floatval(str_replace(',', '.', $column)) >= $decryptionrules) {
+          echo '<td class="green">' . $decryptionrules . '/' . $column . '</td>';
+        } else if ($index === 20 && floatval(str_replace(',', '.', $column)) < $decryptionrules) {
+          echo '<td class="red">' . $decryptionrules . '/' .  $column . '</td>';
+          $modelorecomendado[$numerolinea]=0;
         } else {
           echo '<td >' .  $column . '</td>';
 
@@ -1066,16 +1152,116 @@ echo '<span style="color: green; font-weight: bold; font-size: larger;">Recommen
 if ($VsysLicense==1){
 echo '<br><span style="color: red; font-weight: bold; font-size: larger;">Note: Vsys extension License Needed!</span>';
 }
-
+if ($inboundProxyReady=="yes" || $forwardProxyReady=="yes"){
+  echo '<br><span style="color: red; font-weight: bold; font-size: larger;">Note: The device performs SSL decryption, check the amount of traffic being decrypted!</span>';
+  }
 if ($panorama && $secrules==0){
   echo '<br><br><span style="color: red;">Warning: The firewall is managed by Panorama and no policies are found. NAT and security policies should be checked through Panorama.</span>';
 }
 echo "<br><br> * The information provided on this website is intended for informational purposes based on the obtained data. However, it is important to note that obtaining the actual recommendation for the equipment to acquire may require reviewing additional specific information. Please consider consulting further resources for a comprehensive decision.";
+
+
+// Encontrar el top 10 de aplicaciones utilizadas en todas las secciones
+$top10Aplicaciones = array();
+foreach ($contadoresSecciones as $aplicacion => $contador) {
+    if (count($top10Aplicaciones) < 10) {
+        $top10Aplicaciones[$aplicacion] = $contador;
+    } else {
+        break;
+    }
+}
+
+// Imprimir resultados
+echo "Top 10 de aplicaciones utilizadas:\n";
+foreach ($top10Aplicaciones as $aplicacion => $contador) {
+    echo "$aplicacion: $contador\n";
+}
+
+
+
+
 ?>
 
 
+
+
+
+
     </div>
     </div>
+
+
+    <div class="pagetitle">
+      <h1>Other Info</h1>
+      <nav>
+
+      </nav>
+    </div><!-- End Page Title -->
+    <section class="section">
+          <div class="card">
+            <div class="card-body">
+            <div class="row">
+            <div class="col-md-4">
+            <i class="bi bi-grid"> Top10 Apps</i>
+    <div id="donutchart" style="width: 650px; height: 500px;"></div>
+
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+      // Esperamos a que se cargue Google Charts
+      google.charts.load("current", {packages:["corechart"]});
+      google.charts.setOnLoadCallback(drawChart);
+
+      // Función para dibujar el gráfico
+      function drawChart() {
+        // Convertir el array asociativo de aplicaciones en un array de arrays
+        var dataArr = [
+          ['Task', 'Value']
+        ];
+        var top10Aplicaciones = <?php echo json_encode($top10Aplicaciones); ?>;
+        for (var appName in top10Aplicaciones) {
+          dataArr.push([appName, top10Aplicaciones[appName]]);
+        }
+
+        var data = google.visualization.arrayToDataTable(dataArr);
+
+        var options = {
+          title: '',
+          pieHole: 0.4,
+        };
+
+        var chart = new google.visualization.PieChart(document.getElementById('donutchart'));
+        chart.draw(data, options);
+      }
+    </script>
+    </div>
+    <div class="col-md-4">
+          <!-- Segunda columna -->
+          <i class="bi bi-grid"> Decryption and CDL Info</i>
+          <ul><li class="nav-item">SSL-Decrypt Inbound: <?php echo $inboundProxyReady ?></li>
+          <li class="nav-item">SSL-Decrypt Forward: <?php echo $forwardProxyReady ?></li>
+          <li class="nav-item">CDL Enabled: <?php echo $CDLenabled ?></li></ul><br>
+          <i class="bi bi-grid"> Licenses</i>
+          <ul>   
+            <?php   
+            foreach ($subscriptions as $sub) {
+              echo '<li class="nav-item">' . $sub . '</li>';
+            }
+            ?>
+        </ul>
+        </div>
+        <div class="col-md-4">
+          <!-- Tercera columna -->
+          
+          <i class="bi bi-grid"> Future</i>
+
+        </div>
+    </div>
+    </div>
+  </div>
+</section>
+
+
+
 </section>
 </main>
 <?php
@@ -1120,7 +1306,7 @@ echo "<br><br> * The information provided on this website is intended for inform
 <ul class="sidebar-nav" id="sidebar-nav">
 <li class="nav-item">
       <i class="bi bi-grid"></i>
-      <span>PANFirewallMapper Version: 1.2</span>
+      <span>PANFirewallMapper Version: 1.3</span>
   </li>
   <li class="nav-item">
       <i class="bi bi-grid"></i>
@@ -1139,18 +1325,13 @@ echo "<br><br> * The information provided on this website is intended for inform
       <i class="bi bi-grid"></i>
       <span>Serial: <?php echo $serial ?></span>
   </li>
-
+ 
+  
   <?php
 
 
 
-echo '<li class="nav-item"></li>';
-echo '<i class="bi bi-grid"> Licenses</i>';
-echo '<ul>';
-foreach ($subscriptions as $sub) {
-  echo '<li class="nav-item">' . $sub . '</li>';
-}
-echo '</ul>';
+
 
 //checks
 echo '<li class="nav-item"></li>';
