@@ -1171,11 +1171,7 @@ foreach ($contadoresSecciones as $aplicacion => $contador) {
     }
 }
 
-// Imprimir resultados
-echo "Top 10 de aplicaciones utilizadas:\n";
-foreach ($top10Aplicaciones as $aplicacion => $contador) {
-    echo "$aplicacion: $contador\n";
-}
+
 
 
 
