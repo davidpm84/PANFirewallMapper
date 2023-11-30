@@ -487,14 +487,30 @@ foreach ($linesSdb as $lineaSdb) {
 
     foreach ($lines as $num_linea => $linea) {
 
-     
-        if (trim($linea) == "<vsys>") { 
-          $ini_vsys = $num_linea;
+            //para encontrar las Vsys
+	
+		
+		
+		 if (!$encontradoVsys_guia && strpos($linea, "<vsys>") !== false) {
+          
+          $posicionVsys = $num_linea;
+        } elseif ($posicionVsys==$num_linea-1 && strpos($linea, "<entry name=") !== false) {
+          $ini_vsys = $posicionVsys;
+          $encontradoVsys_guia = true;
+        } else {
+          $posicionVsys = 0;
+
         }
-        if (trim($linea) == "</vsys>") { 
+        if ($encontradoVsys_guia && strpos($linea, "</vsys>") !== false) {
           $fin_vsys = $num_linea;
+          $encontradoNat = false;
+
         }
-      
+		
+		
+       
+	 
+	
 
 
         if ($fin_system==0 ){
@@ -738,7 +754,7 @@ foreach ($linesSdb as $lineaSdb) {
 
 for ($i = 0; $i < $sizeVR; $i++) {
   if ($num_línea >= ($posicionesVR[$i] - 1) && $num_línea <= ($posicionesEndVR[$i] - 1) ) {
-    if (trim($línea) == "<ecmp>" ) {
+    if (trim($línea) == "<protocol>" ) {
       $vrouters++;
 
     }
