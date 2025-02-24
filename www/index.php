@@ -534,10 +534,19 @@ foreach ($linesSdb as $lineaSdb) {
           } elseif (strpos($linea, '</zone>') !== false) {
             $encontradoEndZone = true;
             $posicionesEndZone[] = $num_linea;
-            $encontradoVsys = false; // Reiniciamos la variable de estado para buscar la siguiente combinación
+			//añado para detectar si ha encontrazo un zone con más de 5 lineas, en caso contrario sigue
+			$diferencia_lineas = abs(end($posicionesEndZone) - end($posicionesZone));
+			if ($diferencia_lineas < 5) {
+				$encontradoVsys = true;
+			} else {
+				$encontradoVsys = false;
+			}
+            //$encontradoVsys = false; // Reiniciamos la variable de estado para buscar la siguiente combinación
           }
         }
 
+//echo "Posiciones de zone[]: " . implode(', ', $posicionesZone) . "<br>";
+//echo "Posiciones de endzone[]: " . implode(', ', $posicionesEndZone) . "<br>";
 
      
 
